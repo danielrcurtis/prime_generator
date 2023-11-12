@@ -1,0 +1,20 @@
+[package]
+name = "prime_generator"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rayon = "1.5"
+clap = "3"
+csv = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+num-bigint = { version = "0.4", features = ["serde"] }
+num-traits = "0.2"
+num_cpus = "1.13" 
+
+[profile.release]
+opt-level = 3  # Optimize for maximum runtime performance
+debug = false  # Include debug information (set to true if needed)
+lto = true     # Enable Link Time Optimization
