@@ -1,0 +1,1 @@
+The purpose of this program is to create a database of prime numbers, and verified non-prime numbers up to the 4096 bit space.

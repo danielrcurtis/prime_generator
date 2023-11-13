@@ -69,7 +69,7 @@ fn main() {
     // Create a new Tokio runtime
     let rt = Runtime::new().unwrap();
     // Use the runtime to block on the asynchronous function
-    let (default_start, default_end) = rt.block_on(fetch_default_range());
+    let (default_start, default_end) = rt.block_on(fetch_default_range()).expect("Failed to fetch default range");
 
     // Setup CLI using `clap` crate.
     let matches = App::new("Prime Factorization")
