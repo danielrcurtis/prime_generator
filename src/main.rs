@@ -69,8 +69,14 @@ fn main() {
     // Create a new Tokio runtime
     let rt = Runtime::new().unwrap();
     // Use the runtime to block on the asynchronous function
-    let (default_start, default_end) = rt.block_on(fetch_default_range()).expect("Failed to fetch default range");
-
+    let (default_start, default_end) = match rt.block_on(fetch_default_range()) {
+        Ok(range) => range,
+        Err(e) => {
+            // Handle error, e.g., log it and use a default value or exit
+            eprintln!("Error fetching range: {}", e);
+            (0, 0) // Example default values, or you could exit the program
+        },
+    };
     // Setup CLI using `clap` crate.
     let matches = App::new("Prime Factorization")
         // Specifies the version, author, and about text for the help output.
@@ -270,20 +276,18 @@ fn write_to_csv(data: &HashMap<u128, Vec<BigInt>>) -> Result<()> {
     Ok(())
 }
 
-async fn fetch_default_range() -> (u128, u128) {
+async fn fetch_default_range() -> std::result::Result<(u128, u128), reqwest::Error> {
     let api_url = "http://primegen.io/api/default_range";
     let client = reqwest::Client::new();
 
     let response = client.get(api_url)
         .send()
-        .await
-        .expect("Failed to fetch the range");
+        .await?;
 
     let Range { start, end } = response.json::<Range>()
-        .await
-        .expect("Failed to parse the range");
+        .await?;
 
-    (start, end)
+    Ok((start, end))
 }
 
 // Function to read data from CSV file
