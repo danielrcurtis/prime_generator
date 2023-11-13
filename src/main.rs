@@ -183,9 +183,12 @@ fn main() {
     write_to_csv(&*data).expect("Failed to write to CSV");
 
     // Post results to API
-    rt.block_on(post_results("primes_and_powers.csv"))
-        .expect("Failed to post results");
-}
+    let _api = match rt.block_on(post_results("primes_and_powers.csv"))
+    {
+        Ok(_) => "Success",
+        Err(_) => "Failure",
+    };
+    }
 
 // Function to calculate the powers of a number
 fn calculate_powers(n: u128) -> Option<(BigInt, BigInt, BigInt)> {
