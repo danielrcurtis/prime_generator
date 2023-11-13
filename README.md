@@ -7,3 +7,9 @@ Build the application from source:
 cargo update
 
 cargo build --release
+
+You can search a specific space by running prime_generator.exe -s start_number -e end_number -c num_cpus
+
+Example:
+
+prime_generator.exe -s 3000000000 -e 3100000000 -c 6

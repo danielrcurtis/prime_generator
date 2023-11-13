@@ -20,3 +20,6 @@ tokio = { version = "1", features = ["full"] }
 opt-level = 3  # Optimize for maximum runtime performance
 debug = false  # Include debug information (set to true if needed)
 lto = true     # Enable Link Time Optimization
+
+[build]
+jobs = 4 # Number of parallel jobs

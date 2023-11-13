@@ -2,6 +2,10 @@ extern crate rayon;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
+use std::time::{Duration, Instant};
 extern crate num_bigint as bigint;
 extern crate num_traits;
 use bigint::{BigInt, ToBigInt};
@@ -9,17 +13,16 @@ use num_traits::Zero;
 use std::fs::OpenOptions;
 use std::io::Result;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 use std::convert::From;
 use serde::{Serialize, Deserialize};
 use csv::Writer;
 extern crate clap;
 use clap::{App, Arg};
 extern crate csv;
-use std::time::Instant;
 use reqwest;
 use tokio::runtime::Runtime;
 use num_traits::ToPrimitive;
+
 #[derive(Serialize, Deserialize)]
 struct PrimeRecord {
     prime: u128,
@@ -135,8 +138,29 @@ fn main() {
     // Clone `primes_and_powers` before moving it into the closure
     let primes_and_powers_clone = primes_and_powers.clone();
     let temp_storage: Arc<Mutex<Vec<(u128, Vec<BigInt>)>>> = Arc::new(Mutex::new(Vec::new()));
-
+    
+    let progress = Arc::new(AtomicUsize::new(0));
+    let total_numbers = end - start + 1; // Total range of numbers
+    
+    // Clone `progress` for the progress reporting thread
+    let progress_clone_for_thread = Arc::clone(&progress);
+    
+    // Clone `progress` for the main computation
+    let progress_clone_for_computation = Arc::clone(&progress);
+    
+    // Start a separate thread to report progress
+    let progress_thread = thread::spawn(move || {
+        while progress_clone_for_thread.load(Ordering::SeqCst) < total_numbers as usize {
+            println!("Progress: {}/{}", progress_clone_for_thread.load(Ordering::SeqCst), total_numbers);
+            thread::sleep(Duration::from_secs(120)); // Report every 2 minutes
+        }
+    });
+    
     let start_time = Instant::now();
+    
+
+    // Clone `progress` again for the update after the main computation
+    let progress_clone_for_update = Arc::clone(&progress);
 
     // Parallel iteration
     let temp_storage_clone = temp_storage.clone();
@@ -150,14 +174,13 @@ fn main() {
                 None
             }
         })
-    .for_each(move |big_n| {
+        .for_each(move |big_n| {
             if is_prime(big_n.clone()) {
                 let n = big_n.to_u128().expect("Number should fit in u128");
                 if let Some((squared, cubed, to_fourth_power)) = calculate_powers(n) {
                     let mut storage = temp_storage_clone.lock().unwrap();
                     storage.push((n, vec![squared, cubed, to_fourth_power]));
     
-                    // Check if it's time to flush
                     if storage.len() >= FLUSH_THRESHOLD {
                         flush_to_csv(&mut *storage).expect("Failed to flush to CSV");
                     }
@@ -165,6 +188,8 @@ fn main() {
                     println!("Overflow error for {}", n);
                 }
             }
+            // Update progress
+            progress_clone_for_computation.fetch_add(1, Ordering::SeqCst);
         });
     
     // Flush any remaining data
@@ -174,10 +199,18 @@ fn main() {
             flush_to_csv(&mut *storage).expect("Failed to flush to CSV");
         }
     }
-
+    
     let elapsed_duration = start_time.elapsed();
     println!("Time taken: {:?}", elapsed_duration);
     
+    // Ensure all progress is accounted for
+    progress_clone_for_update.store(total_numbers as usize, Ordering::SeqCst);
+    
+    // Join the progress thread
+    if let Err(_) = progress_thread.join() {
+        eprintln!("Failed to join progress reporting thread.");
+    }
+
     // Write final data to CSV
     let data = primes_and_powers_clone.lock().unwrap();
     write_to_csv(&*data).expect("Failed to write to CSV");
